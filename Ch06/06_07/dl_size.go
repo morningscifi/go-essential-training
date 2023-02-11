@@ -1,4 +1,5 @@
-/* Calculate total download size for NYC taxi data for 2020
+/*
+	Calculate total download size for NYC taxi data for 2020
 
 For each month, we have two files: green and yellow. For example:
 
@@ -17,41 +18,56 @@ import (
 	"time"
 )
 
+type chanData struct {
+	num int
+	err error
+}
+
 var (
 	urlTemplate = "https://s3.amazonaws.com/nyc-tlc/trip+data/%s_tripdata_2020-%02d.csv"
 	colors      = []string{"green", "yellow"}
 )
 
-func downloadSize(url string) (int, error) {
+func downloadSize(url string, c chan<- chanData) {
 	req, err := http.NewRequest(http.MethodHead, url, nil)
 	if err != nil {
-		return 0, err
+		c <- chanData{0, err}
+		return
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return 0, err
+		c <- chanData{0, err}
+		return
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return 0, fmt.Errorf(resp.Status)
+		c <- chanData{0, fmt.Errorf(resp.Status)}
+		return
 	}
 
-	return strconv.Atoi(resp.Header.Get("Content-Length"))
+	num, err := strconv.Atoi(resp.Header.Get("Content-Length"))
+	c <- chanData{num, err}
 }
 
 func main() {
 	start := time.Now()
 	size := 0
+	ch := make(chan chanData)
 	for month := 1; month <= 12; month++ {
 		for _, color := range colors {
 			url := fmt.Sprintf(urlTemplate, color, month)
 			fmt.Println(url)
-			n, err := downloadSize(url)
-			if err != nil {
-				log.Fatal(err)
+			go downloadSize(url, ch)
+		}
+	}
+	for month := 1; month <= 12; month++ {
+		for range colors {
+			cd := <-ch
+			if cd.err != nil {
+				log.Fatal(cd.err)
 			}
-			size += n
+			size += cd.num
 		}
 	}
 

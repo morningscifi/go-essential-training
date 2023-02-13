@@ -9,21 +9,15 @@ import (
 )
 
 type User struct {
-	Login    string `json:"user"`
-	Name     string `json:"name"`
-	NumRepos int    `json:"public_repos"`
+	Login    string
+	Name     string
+	NumRepos int `json:"public_repos"`
 }
 
 // userInfo return information on github user
 func userInfo(login string) (*User, error) {
-	/* TODO:
-	Call the github API for a given login
-	e.g. https://api.github.com/users/tebeka
-
-
-	And return User struct
-	*/
-	resp, err := http.Get("https://api.github.com/users/tebeka")
+	u := fmt.Sprintf("https://api.github.com/users/%s", login)
+	resp, err := http.Get(u)
 	if err != nil {
 		log.Fatalf("GET failed")
 	}

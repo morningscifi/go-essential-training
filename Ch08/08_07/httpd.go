@@ -14,6 +14,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 )
@@ -28,7 +29,8 @@ type dbResponse struct {
 }
 
 type dbRequest struct {
-	Key string `json:"key"`
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 // POST /key Store request body as value
@@ -57,6 +59,19 @@ func (s *Server) getHandler(w http.ResponseWriter, r *http.Request) {
 	if err := enc.Encode(&resp); err != nil {
 		log.Printf("can't encode %v - %s", resp, err)
 	}
+}
+
+func (s *Server) postHandler(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	key := r.URL.Path[1:]                // trim leading slash
+	rdr := io.LimitReader(r.Body, 1<<10) // 1<<10 is 1k bytes
+	data, err := io.ReadAll(rdr)
+	if err != nil {
+		http.Error(w, "can't read", http.StatusBadRequest)
+		return
+	}
+	s.db.Set(key, data)
+	fmt.Fprintf(w, "%s set\n", key)
 }
 
 func main() {
